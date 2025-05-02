@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  db:
+    container_name: "Tone_of_Voice"
+    image: "postgres:latest"
+    restart: always
+    ports:
+      - "${DATABASE_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_DB}
+    networks:
+      - Tone_of_Voice
+    volumes:
+      - "data:/var/lib/postgresql/data"
+    env_file:
+      - .env
+
+networks:
+  Tone_of_Voice:
+    driver: bridge
+
+volumes:
+  data:
