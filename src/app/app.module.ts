@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ToneModule } from './tone/tone.module';
-import { ConfigService } from '../lib/env/config.service';
+import { ConfigService } from '../lib/config/config.service';
 
 const configService= new ConfigService()
 @Module({

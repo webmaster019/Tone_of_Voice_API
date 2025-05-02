@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { OpenAiService } from './openai.service';
-import { ConfigModule } from '../env/config.module';
+import { ConfigModule } from '../config/config.module';
 
 @Module({
   imports:[ConfigModule],
