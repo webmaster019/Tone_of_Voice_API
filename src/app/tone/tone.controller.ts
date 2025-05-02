@@ -1,7 +1,9 @@
 import { Controller, Post, Get, Param, Body } from '@nestjs/common';
 import { ToneService } from './tone.service';
-import { AnalyzeTextDto, SaveToneSignatureDto, OptimizeTextDto } from './dto/tone.dto';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { OptimizeTextDto } from './dto/optimizeText.dto';
+import { SaveToneSignatureDto } from './dto/saveToneSignature.dto';
+import { AnalyzeTextDto } from './dto/AnalyzeText.dto';
 
 @ApiTags('Tone')
 @Controller('tone')
