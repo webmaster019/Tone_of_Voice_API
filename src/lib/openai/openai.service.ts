@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
-import { ConfigService } from '../../lib/env/config.service';
+import { ConfigService } from '../env/config.service';
 
 @Injectable()
 export class OpenAiService {
