@@ -5,9 +5,10 @@ import { ToneService } from './tone.service';
 import { ToneController } from './tone.controller';
 import { OpenAiModule } from '../../lib/openai/openai.module';
 import { NlpModule } from '../../lib/nlp/nlp.module';
+import { ToneEvaluation } from './entity/tone-evaluation.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ToneSignature]), OpenAiModule,NlpModule],
+  imports: [TypeOrmModule.forFeature([ToneSignature, ToneEvaluation]), OpenAiModule,NlpModule],
   controllers: [ToneController],
   providers: [ToneService],
 })

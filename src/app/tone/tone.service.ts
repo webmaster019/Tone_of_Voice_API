@@ -7,12 +7,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { ToneSignature } from './entity/tone-signature.entity';
 import { ToneSignatureDto } from './dto/tone.dto';
 import { EvaluateToneDto } from './dto/evaluateTone.dto';
+import { ToneEvaluation } from './entity/tone-evaluation.entity';
+import { SearchEvaluationsDto } from './dto/searchEvaluations.dto';
 
 @Injectable()
 export class ToneService {
   constructor(
     @InjectRepository(ToneSignature)
     private readonly toneRepo: Repository<ToneSignature>,
+    @InjectRepository(ToneEvaluation)
+    private readonly evaluationRepo: Repository<ToneEvaluation>,
     private readonly nlpService: NlpService,
     private readonly openAi: OpenAiService
   ) {}
@@ -106,34 +110,96 @@ Rewritten version:
 
   async rewriteTextWithEvaluation(text: string, brandId: string) {
     const toneSignature = await this.getSignature(brandId);
-    if (!toneSignature) {
-      throw new Error(`No tone signature found for brandId: ${brandId}`);
-    }
+    if (!toneSignature) throw new Error(`No tone signature found for brandId: ${brandId}`);
 
     const prompt = `
-Rewrite the following text using the tone-of-voice signature provided:
+You are a brand-aware copy editor.
 
-Tone: ${toneSignature.tone}
-Language Style: ${toneSignature.languageStyle}
-Formality: ${toneSignature.formality}
-Forms of Address: ${toneSignature.formsOfAddress}
-Emotional Appeal: ${toneSignature.emotionalAppeal}
+Rewrite the following content so that it matches the brand's tone of voice and communication style.
 
-Original text:
+Tone signature:
+{
+  "tone": "${toneSignature.tone}",
+  "languageStyle": "${toneSignature.languageStyle}",
+  "formality": "${toneSignature.formality}",
+  "formsOfAddress": "${toneSignature.formsOfAddress}",
+  "emotionalAppeal": "${toneSignature.emotionalAppeal}"
+}
+
+Guidelines:
+- Maintain the original message and intent
+- Adjust the tone, style, and formality to match the signature
+- Do NOT invent or remove information
+- Output only the rewritten text
+
+Original content:
 """${text}"""
-
-Rewritten version:
 `;
 
-    const rewrittenText = await this.openAi.chat([{ role: 'user', content: prompt }]);
+    const start = Date.now();
+    const rewrittenText = await this.openAi.chat(
+      [{ role: 'user', content: prompt }],
+      { temperature: 0.7 }
+    );
+    const latencyMs = Date.now() - start;
 
-    const evaluation = await this.evaluateTone({
+    const evaluation = await this.evaluateTone({ brandId, originalText: text, rewrittenText });
+
+    // Scoring logic
+    const scoreMap = {
+      fluency: { High: 3, Medium: 2, Low: 1 },
+      authenticity: { High: 3, Medium: 2, Low: 1 },
+      tone_alignment: { High: 3, Medium: 2, Low: 1 },
+      readability: { Excellent: 3, Good: 2, Poor: 1 },
+    };
+
+    const accuracyPoints = {
+      fluency: scoreMap.fluency[evaluation.fluency] || 0,
+      authenticity: scoreMap.authenticity[evaluation.authenticity] || 0,
+      toneAlignment: scoreMap.tone_alignment[evaluation.tone_alignment] || 0,
+      readability: scoreMap.readability[evaluation.readability] || 0,
+    };
+
+    const rawScore =
+      accuracyPoints.toneAlignment * 2 +
+      accuracyPoints.fluency * 1.5 +
+      accuracyPoints.authenticity * 1 +
+      accuracyPoints.readability * 1;
+
+    const maxScore = 6 + 4.5 + 3 + 3; // 16.5
+    const suggestionPenalty = Math.min(evaluation.suggestions.length * 0.5, 3);
+    const finalRaw = Math.max(rawScore - suggestionPenalty, 0);
+    const normalizedScore = parseFloat((finalRaw / maxScore).toFixed(2)); // range: 0.00–1.00
+
+    await this.evaluationRepo.save({
       brandId,
       originalText: text,
       rewrittenText,
+      fluency: evaluation.fluency,
+      authenticity: evaluation.authenticity,
+      toneAlignment: evaluation.tone_alignment,
+      readability: evaluation.readability,
+      strengths: evaluation.strengths,
+      suggestions: evaluation.suggestions,
+      score: normalizedScore,
+      latencyMs,
+      accuracyPoints,
     });
 
-    return { rewrittenText, evaluation };
+    return {
+      brandId,
+      originalText: text,
+      rewrittenText,
+      fluency: evaluation.fluency,
+      authenticity: evaluation.authenticity,
+      toneAlignment: evaluation.tone_alignment,
+      readability: evaluation.readability,
+      strengths: evaluation.strengths,
+      suggestions: evaluation.suggestions,
+      score: normalizedScore,
+      latencyMs,
+      accuracyPoints,
+    };
   }
 
   async listAllBrands(): Promise<string[]> {
@@ -222,5 +288,52 @@ Rewritten Text:
     } catch {
       throw new Error('Invalid JSON from OpenAI: ' + result);
     }
+  }
+
+  async getEvaluationMatrix() {
+    const evaluations = await this.evaluationRepo.find({ order: { createdAt: 'DESC' } });
+    return evaluations.map(e => ({
+      brandId: e.brandId,
+      fluency: e.fluency,
+      authenticity: e.authenticity,
+      toneAlignment: e.toneAlignment,
+      readability: e.readability,
+      score: e.score,
+      latencyMs: e.latencyMs,
+      timestamp: e.createdAt,
+      accuracyPoints: e.accuracyPoints,
+    }));
+  }
+
+  async searchEvaluations(query: SearchEvaluationsDto) {
+    const {
+      brandId,
+      minScore,
+      maxScore,
+      startDate,
+      endDate,
+      page,
+      limit,
+    } = query;
+
+    const qb = this.evaluationRepo.createQueryBuilder('eval')
+      .where('eval.score BETWEEN :minScore AND :maxScore', { minScore, maxScore });
+
+    if (brandId) qb.andWhere('eval.brandId = :brandId', { brandId });
+    if (startDate) qb.andWhere('eval.createdAt >= :startDate', { startDate });
+    if (endDate) qb.andWhere('eval.createdAt <= :endDate', { endDate });
+
+    qb.orderBy('eval.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [results, total] = await qb.getManyAndCount();
+
+    return {
+      total,
+      page,
+      limit,
+      results,
+    };
   }
 }

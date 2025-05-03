@@ -1,11 +1,13 @@
-import { Controller, Post, Get, Param, Body } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Query } from '@nestjs/common';
 import { ToneService } from './tone.service';
-import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { OptimizeTextDto } from './dto/optimizeText.dto';
 import { SaveToneSignatureDto } from './dto/saveToneSignature.dto';
 import { ToneSignatureDto } from './dto/tone.dto';
 import { AnalyzeTextDto } from './dto/AnalyzeText.dto';
 import { EvaluateToneDto } from './dto/evaluateTone.dto';
+import { RewriteWithEvaluationResponseDto } from './dto/rewriteWithEvaluationResponse.dto';
+import { SearchEvaluationsDto } from './dto/searchEvaluations.dto';
 
 @ApiTags('Tone')
 @Controller('tone')
@@ -76,8 +78,11 @@ export class ToneController {
       }
     }
   })
+
+  @ApiOperation({ summary: 'Rewrite and evaluate tone in one step' })
+  @ApiResponse({ status: 200, type: RewriteWithEvaluationResponseDto })
   @Post('signature/rewrite-with-evaluation')
-  rewriteTextWithEvaluation(@Body() dto: OptimizeTextDto) {
+  rewriteWithEvaluation(@Body() dto: OptimizeTextDto) {
     return this.toneService.rewriteTextWithEvaluation(dto.text, dto.brandId);
   }
   @ApiOperation({ summary: 'Evaluate rewritten text using tone signature from brandId' })
@@ -86,4 +91,16 @@ export class ToneController {
   evaluate(@Body() dto: EvaluateToneDto) {
     return this.toneService.evaluateTone(dto);
   }
+  @ApiOperation({ summary: 'List all tone evaluation results as matrix' })
+  @Get('evaluation/matrix')
+  async getEvaluations() {
+    return this.toneService.getEvaluationMatrix();
+  }
+
+  @Get('evaluation/search')
+  @ApiOperation({ summary: 'Search evaluations with filters and pagination' })
+  async searchEvaluations(@Query() query: SearchEvaluationsDto) {
+    return this.toneService.searchEvaluations(query);
+  }
+
 }
