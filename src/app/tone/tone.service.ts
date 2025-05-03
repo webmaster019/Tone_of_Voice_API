@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NlpService } from '../../lib/nlp/nlp.service';
@@ -6,6 +6,7 @@ import { OpenAiService } from '../../lib/openai/openai.service';
 import { v4 as uuidv4 } from 'uuid';
 import { ToneSignature } from './entity/tone-signature.entity';
 import { ToneSignatureDto } from './dto/tone.dto';
+import { EvaluateToneDto } from './dto/evaluateTone.dto';
 
 @Injectable()
 export class ToneService {
@@ -49,7 +50,7 @@ Text:
     try {
       parsed = JSON.parse(result);
     } catch {
-      throw new InternalServerErrorException('OpenAI did not return valid JSON');
+      throw new BadRequestException('OpenAI did not return valid JSON');
     }
 
     return {
@@ -103,6 +104,38 @@ Rewritten version:
     return this.openAi.chat([{ role: 'user', content: prompt }]);
   }
 
+  async rewriteTextWithEvaluation(text: string, brandId: string) {
+    const toneSignature = await this.getSignature(brandId);
+    if (!toneSignature) {
+      throw new Error(`No tone signature found for brandId: ${brandId}`);
+    }
+
+    const prompt = `
+Rewrite the following text using the tone-of-voice signature provided:
+
+Tone: ${toneSignature.tone}
+Language Style: ${toneSignature.languageStyle}
+Formality: ${toneSignature.formality}
+Forms of Address: ${toneSignature.formsOfAddress}
+Emotional Appeal: ${toneSignature.emotionalAppeal}
+
+Original text:
+"""${text}"""
+
+Rewritten version:
+`;
+
+    const rewrittenText = await this.openAi.chat([{ role: 'user', content: prompt }]);
+
+    const evaluation = await this.evaluateTone({
+      brandId,
+      originalText: text,
+      rewrittenText,
+    });
+
+    return { rewrittenText, evaluation };
+  }
+
   async listAllBrands(): Promise<string[]> {
     const brands = await this.toneRepo.find();
     return brands.map(b => b.brandId);
@@ -140,5 +173,54 @@ Respond with:
 
     const result = await this.openAi.chat([{ role: 'user', content: prompt }]);
     return JSON.parse(result);
+  }
+
+  async evaluateTone(dto: EvaluateToneDto): Promise<{
+    fluency: string;
+    authenticity: string;
+    tone_alignment: string;
+    readability: string;
+    strengths: string[];
+    suggestions: string[];
+  }> {
+    const { originalText, rewrittenText, brandId } = dto;
+
+    const toneSignature = await this.getSignature(brandId);
+    if (!toneSignature) {
+      throw new BadRequestException(`Tone signature not found for brandId: ${brandId}`);
+    }
+
+    const prompt = `
+You are an expert tone-of-voice evaluator.
+
+Given a brand's tone signature and two versions of a message (original + rewritten), assess how well the rewritten text matches the brand's tone and overall quality.
+
+Return a JSON object like:
+{
+  "fluency": "High | Medium | Low",
+  "authenticity": "High | Medium | Low",
+  "tone_alignment": "High | Medium | Low",
+  "readability": "Excellent | Good | Poor",
+  "strengths": ["..."],
+  "suggestions": ["..."]
+}
+
+Tone Signature:
+${JSON.stringify(toneSignature, null, 2)}
+
+Original Text:
+"""${originalText}"""
+
+Rewritten Text:
+"""${rewrittenText}"""
+`;
+
+    const result = await this.openAi.chat([{ role: 'user', content: prompt }]);
+
+    try {
+      return JSON.parse(result);
+    } catch {
+      throw new Error('Invalid JSON from OpenAI: ' + result);
+    }
   }
 }

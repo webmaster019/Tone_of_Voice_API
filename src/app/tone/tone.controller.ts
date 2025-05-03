@@ -5,6 +5,7 @@ import { OptimizeTextDto } from './dto/optimizeText.dto';
 import { SaveToneSignatureDto } from './dto/saveToneSignature.dto';
 import { ToneSignatureDto } from './dto/tone.dto';
 import { AnalyzeTextDto } from './dto/AnalyzeText.dto';
+import { EvaluateToneDto } from './dto/evaluateTone.dto';
 
 @ApiTags('Tone')
 @Controller('tone')
@@ -55,5 +56,34 @@ export class ToneController {
   @Post('brand/detect')
   detectBrand(@Body() dto: AnalyzeTextDto) {
     return this.toneService.detectBrand(dto.text);
+  }
+
+  @ApiOperation({ summary: 'Rewrite and evaluate tone in one step' })
+  @ApiBody({ type: OptimizeTextDto })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        rewrittenText: "Transcending commerce with a touch of elegance.",
+        evaluation: {
+          fluency: "High",
+          authenticity: "Medium",
+          tone_alignment: "High",
+          readability: "Excellent",
+          strengths: ["Good alignment with emotional appeal"],
+          suggestions: ["Increase use of brand-specific phrases"]
+        }
+      }
+    }
+  })
+  @Post('signature/rewrite-with-evaluation')
+  rewriteTextWithEvaluation(@Body() dto: OptimizeTextDto) {
+    return this.toneService.rewriteTextWithEvaluation(dto.text, dto.brandId);
+  }
+  @ApiOperation({ summary: 'Evaluate rewritten text using tone signature from brandId' })
+  @ApiBody({ type: EvaluateToneDto })
+  @Post('signature/evaluate')
+  evaluate(@Body() dto: EvaluateToneDto) {
+    return this.toneService.evaluateTone(dto);
   }
 }
