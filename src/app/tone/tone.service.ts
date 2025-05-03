@@ -1,9 +1,10 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NlpService } from '../../lib/nlp/nlp.service';
+import { OpenAiService } from '../../lib/openai/openai.service';
 import { v4 as uuidv4 } from 'uuid';
 import { ToneSignature } from './entity/tone-signature.entity';
-import { OpenAiService } from '../../lib/openai/openai.service';
 import { ToneSignatureDto } from './dto/tone.dto';
 
 @Injectable()
@@ -11,44 +12,60 @@ export class ToneService {
   constructor(
     @InjectRepository(ToneSignature)
     private readonly toneRepo: Repository<ToneSignature>,
-    private readonly openAi: OpenAiService,
+    private readonly nlpService: NlpService,
+    private readonly openAi: OpenAiService
   ) {}
 
   async analyzeText(text: string): Promise<ToneSignatureDto> {
-    const prompt = `Analyze the tone of voice of the following text and output as JSON:
-- tone
-- language_style
-- formality
-- forms_of_address
-- emotional_appeal
+    const nlpMetadata = this.nlpService.analyze(text);
+
+    const prompt = `
+You are a branding expert and linguist.
+Analyze the following text and return a tone-of-voice signature as JSON.
+
+In addition to tone fields, classify the overall tone into one of the following:
+Professional, Conversational, Empathetic, Inspirational, Assertive, Playful
+
+Respond ONLY with valid JSON:
+{
+  "tone": "...",
+  "language_style": "...",
+  "formality": "...",
+  "forms_of_address": "...",
+  "emotional_appeal": "...",
+  "classification": "..."
+}
+
+Context:
+${JSON.stringify(nlpMetadata, null, 2)}
 
 Text:
-"""${text}"""`;
+"""${text}"""
+`;
 
-    const response = await this.openAi.chat([{ role: 'user', content: prompt }]);
+    const result = await this.openAi.chat([{ role: 'user', content: prompt }]);
 
-    let raw: any = {};
+    let parsed: any;
     try {
-      raw = JSON.parse(response);
+      parsed = JSON.parse(result);
     } catch {
       throw new InternalServerErrorException('OpenAI did not return valid JSON');
     }
 
     return {
-      tone: raw.tone || 'Unknown',
-      languageStyle: raw.language_style || 'Unknown',
-      formality: raw.formality || 'Unknown',
-      formsOfAddress: raw.forms_of_address || 'Unknown',
-      emotionalAppeal: raw.emotional_appeal || 'Unknown',
+      tone: parsed.tone || 'Unknown',
+      languageStyle: parsed.language_style || 'Unknown',
+      formality: parsed.formality || 'Unknown',
+      formsOfAddress: parsed.forms_of_address || 'Unknown',
+      emotionalAppeal: parsed.emotional_appeal || 'Unknown',
+      classification: parsed.classification || 'Unclassified',
+      ...nlpMetadata,
     };
   }
 
   async analyzeAndSave(text: string, brandId?: string) {
     const signature = await this.analyzeText(text);
-
-    if (!brandId) {
-      brandId = uuidv4();
-    }
+    if (!brandId) brandId = uuidv4();
 
     const existing = await this.toneRepo.findOneBy({ brandId });
     const entity = existing
@@ -64,9 +81,13 @@ Text:
 
   async rewriteText(text: string, brandId: string): Promise<string> {
     const signature = await this.getSignature(brandId);
-    if (!signature) throw new InternalServerErrorException(`No tone signature found for brand ${brandId}`);
+    if (!signature) {
+      throw new InternalServerErrorException(`No tone signature found for brand ${brandId}`);
+    }
 
-    const prompt = `Rewrite the following text using this tone-of-voice:
+    const prompt = `
+Rewrite the following text using the tone-of-voice signature provided below:
+
 Tone: ${signature.tone}
 Language Style: ${signature.languageStyle}
 Formality: ${signature.formality}
@@ -76,14 +97,15 @@ Emotional Appeal: ${signature.emotionalAppeal}
 Original text:
 """${text}"""
 
-Rewritten text:`;
+Rewritten version:
+`;
 
     return this.openAi.chat([{ role: 'user', content: prompt }]);
   }
 
   async listAllBrands(): Promise<string[]> {
     const brands = await this.toneRepo.find();
-    return brands.map((b) => b.brandId);
+    return brands.map(b => b.brandId);
   }
 
   async detectBrand(text: string): Promise<{ match: string; confidence: string }> {
@@ -94,29 +116,27 @@ Rewritten text:`;
       throw new InternalServerErrorException('No brands stored.');
     }
 
-    const comparison = all.map((b) => {
-      return `Brand: ${b.brandId}
-Tone: ${b.tone}
-Language Style: ${b.languageStyle}
-Formality: ${b.formality}
-Forms of Address: ${b.formsOfAddress}
-Emotional Appeal: ${b.emotionalAppeal}`;
-    });
+    const profiles = all.map(b => ({
+      brandId: b.brandId,
+      tone: b.tone,
+      languageStyle: b.languageStyle,
+      formality: b.formality,
+      formsOfAddress: b.formsOfAddress,
+      emotionalAppeal: b.emotionalAppeal
+    }));
 
-    const prompt = `Given the following tone-of-voice profiles and a new input tone, determine the most similar brand.
+    const prompt = `
+Compare the following tone-of-voice input with existing brand tone profiles and return the best match.
+
+Input:
+${JSON.stringify(inputSignature, null, 2)}
 
 Profiles:
-${comparison.join('\n\n')}
+${JSON.stringify(profiles, null, 2)}
 
-Input tone:
-Tone: ${inputSignature.tone}
-Language Style: ${inputSignature.languageStyle}
-Formality: ${inputSignature.formality}
-Forms of Address: ${inputSignature.formsOfAddress}
-Emotional Appeal: ${inputSignature.emotionalAppeal}
-
-Which brand is the closest match? Respond with JSON:
-{ "match": "brandId", "confidence": "high/medium/low" }`;
+Respond with:
+{ "match": "brandId", "confidence": "high/medium/low" }
+`;
 
     const result = await this.openAi.chat([{ role: 'user', content: prompt }]);
     return JSON.parse(result);

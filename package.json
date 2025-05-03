@@ -26,12 +26,15 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.1.6",
     "@nestjs/typeorm": "^11.0.0",
+    "compromise": "^14.14.4",
     "openai": "^4.96.2",
     "pg": "^8.15.6",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "typeorm": "^0.3.22",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "wink-eng-lite-web-model": "^1.8.1",
+    "wink-nlp": "^2.3.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
