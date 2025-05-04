@@ -14,4 +14,5 @@ export const config = {
   SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
   SLACK_NOTIFY_USER_ID: process.env.SLACK_NOTIFY_USER_ID,
   SLACK_NOTIFY_CHANNEL: process.env.SLACK_NOTIFY_CHANNEL,
+  SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
 };

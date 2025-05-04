@@ -14,7 +14,7 @@ export class RetuneJobService {
     private readonly config: ConfigService,
   ) {}
   //@Cron('*/30 * * * * *')
-  @Cron('0 */10 * * * *')
+  @Cron('0 */60 * * * *')
   async handleToneRetune() {
     const brands = await this.toneService.listAllBrands();
 
@@ -29,6 +29,7 @@ export class RetuneJobService {
 
         try {
           await this.slack.sendToneDriftAlert(brandId, suggestion, {
+            triggeredBy: 'cron',
             mentionUserIds: this.config.get<string>('SLACK_NOTIFY_USER_IDS')?.split(','),
             mentionChannel: this.config.get<string>('SLACK_NOTIFY_CHANNEL'),
           });
