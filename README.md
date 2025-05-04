@@ -15,7 +15,7 @@ ToneAssistant is a NestJS-based AI-powered backend that detects, evaluates, and 
 * **Slack Integration** – Interactive notifications (approve/reject tone updates)
 * **Chart.js (via chartjs-node-canvas)** – Server-side rendered evaluation visualizations
 * **wink-nlp** – Performs lightweight NLP analysis for readability and metadata
-* **Swagger UI** – Interactive documentation at `/docs`
+* **Swagger UI** – Interactive documentation at `/api/doc`
 
 ---
 
