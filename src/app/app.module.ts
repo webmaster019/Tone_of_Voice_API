@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ToneModule } from './tone/tone.module';
 import { ConfigService } from '../lib/config/config.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { JobModule } from '../retune-job/retune-job.module';
 
 const configService= new ConfigService()
 @Module({
@@ -20,6 +22,9 @@ const configService= new ConfigService()
       synchronize: true,
     }),
     ToneModule,
+    ScheduleModule.forRoot(),
+    JobModule,
+
   ],
 })
 export class AppModule {}

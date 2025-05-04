@@ -1,98 +1,341 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# ToneAssistant – Full Application Documentation
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 📌 Overview
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+ToneAssistant is a NestJS-based AI-powered backend that detects, evaluates, and improves brand tone-of-voice in text. It integrates with Slack to provide real-time notifications and approval workflows for tone drift suggestions.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🧱 Architecture Overview
 
-## Project setup
+* **NestJS** – Modular framework for scalable application structure
+* **OpenAI GPT-4** – Generates tone suggestions, rewrites, and evaluations
+* **Redis** – Tracks feedback statistics
+* **TypeORM + PostgreSQL** – Manages tone signatures, evaluations, feedback, and rejections
+* **Slack Integration** – Interactive notifications (approve/reject tone updates)
+* **Chart.js (via chartjs-node-canvas)** – Server-side rendered evaluation visualizations
+* **wink-nlp** – Performs lightweight NLP analysis for readability and metadata
+* **Swagger UI** – Interactive documentation at `/docs`
 
-```bash
-$ npm install
+---
+
+## 🔧 Modules and Services
+
+### 🧠 ToneModule
+
+* `ToneService` – Core service that handles:
+
+  * Tone analysis
+  * Text rewriting
+  * Tone evaluation and scoring
+  * Signature storage and updating
+
+* `ToneController` – REST API to:
+
+  * Analyze tone
+  * Rewrite text
+  * Evaluate tone
+  * Fetch tone charts, evaluations, and signatures
+
+**Entities:**
+
+* `ToneSignature`
+* `ToneEvaluation`
+* `ToneFeedback`
+* `ToneRejection`
+
+### 🧪 NlpModule
+
+* `NlpService` – Lightweight NLP engine powered by `wink-nlp`
+
+  * Tokenizes text
+  * Calculates readability scores
+  * Detects sentiment, emojis, hashtags, exclamations, etc.
+
+### 💬 SlackModule
+
+* `SlackService` – Sends alerts and messages to Slack
+* `SlackController` – Handles Slack interactivity via `/slack/interact`
+
+  * `approve_signature_update`
+  * `reject_signature_update`
+
+### ⏱ RetuneJobModule
+
+* `RetuneJobService` – Scheduled service to detect tone drift
+
+  * Runs every 10 minutes (via `@Cron`)
+  * Scans evaluations with low tone alignment
+  * Uses OpenAI to suggest updated tone signatures
+  * Sends suggestions to Slack with approve/reject buttons
+
+---
+
+## 🚦 Workflow
+
+1. ✍️ User submits text → analyzed via NLP + OpenAI → tone signature stored
+2. 🔁 New content is rewritten using brand’s tone signature → evaluated
+3. 📊 Evaluation scores and user feedback saved
+4. 🧪 Retune job detects tone drift based on low-alignment evaluations
+5. 🧠 OpenAI proposes updated tone signature
+6. 💬 Slack posts a message for human approval
+7. ✅ Approve = updated in DB | ❌ Reject = reviewer adds reason
+
+---
+
+## 🔌 Slack Integration Guide
+
+### 📎 App Setup
+
+Use this one-click link:
+[Create Slack App](https://api.slack.com/apps?new_app=1&name=ToneAssistant&redirect_url=https://yourdomain.com/slack/oauth/callback)
+
+### 🌐 Environment Configuration
+
+```env
+PORT=3000
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=your_user
+DATABASE_PASSWORD=your_password
+DATABASE_DB=tone_db
+
+OPENAI_API_KEY=sk-...
+APP_REDIS_URL=redis://localhost:6379
+
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+SLACK_NOTIFY_USER_ID=U01ABC123,U02DEF456
+SLACK_NOTIFY_CHANNEL=#tone-alerts
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## 🚀 Swagger Setup
 
-# watch mode
-$ npm run start:dev
+To enable Swagger UI in your NestJS app, update your `main.ts`:
 
-# production mode
-$ npm run start:prod
+```ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  const config = new DocumentBuilder()
+          .setTitle('ToneAssistant API')
+          .setDescription('API for tone analysis, rewriting, and evaluation')
+          .setVersion('1.0')
+          .addTag('Tone')
+          .addTag('Evaluation')
+          .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document);
+
+  await app.listen(process.env.PORT || 3000);
+}
+bootstrap();
 ```
 
-## Run tests
+✅ You can now access Swagger UI at:
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```
+http://localhost:3000/docs
 ```
 
-## Deployment
+To export OpenAPI JSON or YAML:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```ts
+import { writeFileSync } from 'fs';
+writeFileSync('./openapi.json', JSON.stringify(document, null, 2));
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## 📚 REST API Endpoints
 
-Check out a few resources that may come in handy when working with NestJS:
+### 🎯 `/tone` (ToneController)
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+#### `POST /tone/signature/analyze`
 
-## Support
+Analyze tone and return signature.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+**Request Body:**
 
-## Stay in touch
+```json
+{ "text": "We’re excited to announce our latest features!" }
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**Response:**
 
-## License
+```json
+{
+  "tone": "Excited",
+  "languageStyle": "Informal",
+  "formality": "Low",
+  "formsOfAddress": "We/Our",
+  "emotionalAppeal": "Positive",
+  "classification": "Conversational",
+  "readabilityScore": 72.4,
+  "sentiment": "Positive",
+  "wordCount": 9
+}
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+#### `POST /tone/signature/save`
+
+Analyze tone and save to DB.
+
+```json
+{ "text": "Empower your ideas with our platform.", "brandId": "acme-brand" }
+```
+
+#### `POST /tone/signature/rewrite`
+
+```json
+{ "text": "Try our service now!", "brandId": "acme-brand" }
+```
+
+**Response:**
+
+```json
+"Experience innovation through our tailored solutions."
+```
+
+#### `POST /tone/signature/rewrite-with-evaluation`
+
+```json
+{ "text": "Let’s change the world together.", "brandId": "acme-brand" }
+```
+
+**Response:**
+
+```json
+{
+  "rewrittenText": "Join us in transforming the future.",
+  "fluency": "High",
+  "authenticity": "Medium",
+  "toneAlignment": "High",
+  "readability": "Excellent",
+  "score": 0.91
+}
+```
+
+#### `GET /tone/signature/:brandId`
+
+Fetch stored signature.
+
+#### `GET /tone/brand`
+
+Returns all brand IDs.
+
+#### `POST /tone/brand/detect`
+
+```json
+{ "text": "Start building with confidence today." }
+```
+
+**Response:**
+
+```json
+{ "match": "acme-brand", "confidence": "high" }
+```
+
+---
+
+### 📊 `/tone/evaluation` (EvaluationController)
+
+#### `POST /tone/evaluation/feedback`
+
+```json
+{ "evaluationId": "abc123", "helpful": true }
+```
+
+#### `POST /tone/evaluation/signature/evaluate`
+
+```json
+{
+  "brandId": "acme-brand",
+  "originalText": "Try our product today!",
+  "rewrittenText": "Experience innovation with us."
+}
+```
+
+**Response:**
+
+```json
+{
+  "fluency": "High",
+  "authenticity": "High",
+  "tone_alignment": "Medium",
+  "readability": "Good",
+  "strengths": ["Clear messaging"],
+  "suggestions": ["Improve tone consistency"]
+}
+```
+
+#### `GET /tone/evaluation/matrix`
+
+Returns evaluation records in matrix format.
+
+#### `GET /tone/evaluation/search`
+
+Query:
+
+```
+?brandId=acme-brand&minScore=0.6&maxScore=1.0&page=1&limit=10
+```
+
+#### `GET /tone/evaluation/chart`
+
+Query:
+
+```
+?brandId=acme-brand
+```
+
+Response: `[{ timestamp, score, fluency, toneAlignment, ... }]`
+
+#### `GET /tone/evaluation/chart/preview`
+
+Preview chart data grouped by trait and timestamp.
+
+#### `GET /tone/evaluation/chart/image`
+
+Returns `image/png`.
+
+#### `GET /tone/evaluation/chart/traits?brandId=acme-brand&type=radar`
+
+Returns trait chart (bar/radar PNG).
+
+#### `GET /tone/evaluation/stats?brandId=acme-brand`
+
+```json
+{ "avgScore": 0.82, "minScore": 0.5, "maxScore": 0.96 }
+```
+
+#### `GET /tone/evaluation/feedback/:evaluationId`
+
+Returns helpful/unhelpful counts from Redis.
+
+#### `GET /tone/evaluation/tone-insights`
+
+Returns top-performing tone traits:
+
+```json
+[
+  { "trait": "tone:Conversational", "avgScore": 0.89 },
+  { "trait": "formality:Low", "avgScore": 0.85 }
+]
+```
+
+#### `GET /tone/evaluation/rejections`
+
+Returns list of rejected suggestions.
+
+#### `GET /tone/evaluation/rejections/chart`
+
+Returns a PNG bar chart by reviewer.
+
+---

@@ -18,9 +18,11 @@ export class OpenAiService {
     options?: {
       temperature?: number;
       max_tokens?: number;
+      functions?: any[];
+      function_call?: any;
       [key: string]: any;
     }
-  ): Promise<string> {
+  ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
     const res = await this.client.chat.completions.create({
       model: 'gpt-4',
       messages,
@@ -28,6 +30,6 @@ export class OpenAiService {
       ...options,
     });
 
-    return res.choices?.[0]?.message?.content?.trim() || '';
+    return res;
   }
 }

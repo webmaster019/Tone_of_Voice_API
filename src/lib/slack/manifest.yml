@@ -1,0 +1,44 @@
+display_information:
+  name: ToneAssistant
+  description: AI-powered tone evaluation and approval assistant.
+  background_color: "#2D9EE0"
+
+features:
+  bot_user:
+    display_name: ToneBot
+    always_online: true
+
+  slash_commands:
+    - command: /retune
+      description: Trigger a tone retune manually
+      url: https://yourdomain.com/slack/interact
+      usage_hint: "[brandId]"
+      should_escape: false
+
+  incoming_webhooks:
+    - channel: "#general"  # Replace with your channel
+      url: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+
+oauth_config:
+  redirect_urls:
+    - https://yourdomain.com/slack/oauth/callback
+  scopes:
+    bot:
+      - chat:write
+      - commands
+      - incoming-webhook
+
+settings:
+  event_subscriptions:
+    request_url: https://yourdomain.com/slack/interact
+    bot_events:
+      - app_mention
+      - message.channels
+
+  interactivity:
+    is_enabled: true
+    request_url: https://yourdomain.com/slack/interact
+
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
